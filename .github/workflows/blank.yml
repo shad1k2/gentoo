@@ -34,7 +34,13 @@ jobs:
             echo 'gui-wm/swayfx ~amd64' >> /etc/portage/package.accept_keywords/build &&
             echo 'gui-libs/wlroots ~amd64' >> /etc/portage/package.accept_keywords/build &&
             echo 'gui-apps/waybar ~amd64' >> /etc/portage/package.accept_keywords/build &&
-            
+            mkdir -p /etc/portage/package.use
+            # Глобально включаем wayland, чтобы gtkmm и другие либы не ругались
+            echo "*/* wayland" >> /etc/portage/package.use/build
+            # Специфичные флаги для Waybar
+            echo "gui-apps/waybar tray network pulseaudio" >> /etc/portage/package.use/build
+            # Для wlroots лучше оставить X, если планируешь запускать X-приложения через XWayland
+            echo "gui-libs/wlroots x11-backend" >> /etc/portage/package.use/build
             # USE-флаги (Waybar: трей, сеть, звук; wlroots: стандартные бэкенды)
             mkdir -p /etc/portage/package.use &&
             echo 'gui-apps/waybar tray network pulseaudio' >> /etc/portage/package.use/build &&
