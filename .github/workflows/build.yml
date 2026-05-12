@@ -1,4 +1,4 @@
-name: Build Shad1k1 Desktop
+name: Build Shad1k1 Desktopd
 on: workflow_dispatch
 
 jobs:
