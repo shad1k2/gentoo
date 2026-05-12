@@ -1,25 +1,56 @@
-name: Build SwayFX
-on: [push, workflow_dispatch]
+name: Build SwayFX and Waybar
+on: workflow_dispatch
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Run Gentoo build
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build in Docker
         run: |
-          docker run --privileged -v /var/lib/portage:/var/lib/portage gentoo/stage1:latest /bin/bash -c "
-            emerge-webrsync &&
-            emerge app-eselect/eselect-repository &&
-            eselect repository enable guru &&
-            emaint sync -r guru &&
-            # Тут настраиваем твой CPU (лучше ставить generic x86-64)
-            echo 'COMMON_FLAGS=\"-O2 -pipe\"' > /etc/portage/make.conf &&
-            echo 'BINPKG_FORMAT=\"xpak\"' >> /etc/portage/make.conf &&
-            # Сама сборка
-            emerge --verbose --buildpkgonly gui-wm/swayfx
+          # Запускаем контейнер и даем ему имя 'builder'
+          docker run --name builder --privileged gentoo/stage3:latest /bin/bash -c "
+            # Быстрая синхронизация
+            emerge-webrsync
+            
+            # Настройка репозиториев
+            emerge --quiet app-eselect/eselect-repository
+            eselect repository enable guru
+            emaint sync -r guru
+            
+            # Настройка make.conf (Generic x86-64 для твоего Pentium)
+            echo 'COMMON_FLAGS=\"-O2 -pipe\"' > /etc/portage/make.conf
+            echo 'CFLAGS=\"\${COMMON_FLAGS}\"' >> /etc/portage/make.conf
+            echo 'CXXFLAGS=\"\${COMMON_FLAGS}\"' >> /etc/portage/make.conf
+            echo 'MAKEOPTS=\"-j2\"' >> /etc/portage/make.conf
+            echo 'BINPKG_FORMAT=\"xpak\"' >> /etc/portage/make.conf
+            echo 'FEATURES=\"buildpkg\"' >> /etc/portage/make.conf
+            echo 'ACCEPT_LICENSE=\"*\"' >> /etc/portage/make.conf
+            
+            # Разрешаем тестовые версии для SwayFX и Waybar
+            mkdir -p /etc/portage/package.accept_keywords
+            echo 'gui-wm/swayfx ~amd64' >> /etc/portage/package.accept_keywords/build
+            echo 'gui-libs/wlroots ~amd64' >> /etc/portage/package.accept_keywords/build
+            echo 'gui-apps/waybar ~amd64' >> /etc/portage/package.accept_keywords/build
+            
+            # Настройка USE-флагов (чтобы Waybar был со звуком и всем прочим)
+            mkdir -p /etc/portage/package.use
+            echo 'gui-apps/waybar tray network pulseaudio' >> /etc/portage/package.use/build
+            
+            # Собираем всё сразу (SwayFX потянет wlroots, Waybar добавится рядом)
+            emerge --verbose gui-wm/swayfx gui-apps/waybar
           "
-      - name: Upload Binary
+
+      - name: Extract Binaries
+        run: |
+          # Создаем папку и вытаскиваем туда все собранные пакеты (.tbz2 или .xpak)
+          mkdir ./packages
+          docker cp builder:/var/cache/binpkgs/ ./packages/
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: swayfx-bin
-          path: /var/lib/portage/packages/  # Путь внутри контейнера надо будет прокинуть
+          name: gentoo-binaries-shad1k1
+          path: ./packages/binpkgs/
