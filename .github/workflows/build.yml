@@ -1,0 +1,25 @@
+name: Build SwayFX
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Gentoo build
+        run: |
+          docker run --privileged -v /var/lib/portage:/var/lib/portage gentoo/stage1:latest /bin/bash -c "
+            emerge-webrsync &&
+            emerge app-eselect/eselect-repository &&
+            eselect repository enable guru &&
+            emaint sync -r guru &&
+            # Тут настраиваем твой CPU (лучше ставить generic x86-64)
+            echo 'COMMON_FLAGS=\"-O2 -pipe\"' > /etc/portage/make.conf &&
+            echo 'BINPKG_FORMAT=\"xpak\"' >> /etc/portage/make.conf &&
+            # Сама сборка
+            emerge --verbose --buildpkgonly gui-wm/swayfx
+          "
+      - name: Upload Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: swayfx-bin
+          path: /var/lib/portage/packages/  # Путь внутри контейнера надо будет прокинуть
