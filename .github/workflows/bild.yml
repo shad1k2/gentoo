@@ -1,0 +1,31 @@
+name: Build Material Desktop
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc "/usr/local/share/boost"
+
+      - name: Build in Docker
+        run: |
+          docker run --name gentoo_builder --privileged \
+            -v $(pwd):/work \
+            gentoo/stage3:latest /bin/bash /work/build.sh
+
+      - name: Export Packages
+        run: |
+          mkdir -p ./export_bins
+          docker cp gentoo_builder:/var/cache/binpkgs/ ./export_bins/
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: material-gentoo-bins
+          path: ./export_bins/binpkgs/
+          
