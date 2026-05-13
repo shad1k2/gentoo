@@ -5,22 +5,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Free Disk Space
         run: |
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
           sudo rm -rf "/usr/local/share/boost"
 
-      - name: Build in Docker
+      - name: Full Build and Export
         run: |
-          # Используем актуальный stage3
+          # Создаем папку для готовых пакетов на РАБОЧЕЙ МАШИНЕ (не в докере)
+          mkdir -p ./final_packages
+
+          # Запускаем контейнер
           docker run --name builder --privileged gentoo/stage3:latest /bin/bash -c "
             emerge-webrsync &&
             emerge --quiet app-eselect/eselect-repository &&
             eselect repository enable guru &&
             emaint sync -r guru &&
             
-            # Настройка под твой Pentium (generic x86-64)
+            # Настройки (твои флаги и маска)
             echo 'COMMON_FLAGS=\"-O2 -pipe\"' > /etc/portage/make.conf &&
             echo 'CFLAGS=\"\${COMMON_FLAGS}\"' >> /etc/portage/make.conf &&
             echo 'CXXFLAGS=\"\${COMMON_FLAGS}\"' >> /etc/portage/make.conf &&
@@ -29,41 +35,26 @@ jobs:
             echo 'FEATURES=\"buildpkg\"' >> /etc/portage/make.conf &&
             echo 'ACCEPT_LICENSE=\"*\"' >> /etc/portage/make.conf &&
             
-            # Ключевые слова для SwayFX, Waybar и wlroots
             mkdir -p /etc/portage/package.accept_keywords &&
             echo 'gui-wm/swayfx ~amd64' >> /etc/portage/package.accept_keywords/build &&
             echo 'gui-libs/wlroots ~amd64' >> /etc/portage/package.accept_keywords/build &&
             echo 'gui-apps/waybar ~amd64' >> /etc/portage/package.accept_keywords/build &&
-            mkdir -p /etc/portage/package.use
-            # Глобально включаем wayland, чтобы gtkmm и другие либы не ругались
-            echo "*/* wayland" >> /etc/portage/package.use/build
-            # Специфичные флаги для Waybar
-            echo "gui-apps/waybar tray network pulseaudio" >> /etc/portage/package.use/build
-            # Для wlroots лучше оставить X, если планируешь запускать X-приложения через XWayland
-            echo "gui-libs/wlroots x11-backend" >> /etc/portage/package.use/build
-            # USE-флаги (Waybar: трей, сеть, звук; wlroots: стандартные бэкенды)
+            
             mkdir -p /etc/portage/package.use &&
+            echo '*/* wayland' >> /etc/portage/package.use/build &&
             echo 'gui-apps/waybar tray network pulseaudio' >> /etc/portage/package.use/build &&
             echo 'gui-libs/wlroots x11-backend' >> /etc/portage/package.use/build &&
             
-            # Сборка
+            # Сама сборка
             emerge --verbose gui-wm/swayfx gui-apps/waybar
           "
+          
+          # Копируем файлы, пока контейнер еще существует в системе (даже если он остановлен)
+          docker cp builder:/var/cache/binpkgs/ ./final_packages/
 
-      - name: Extract Binaries
-        run: |
-          mkdir -p ./packages/binpkgs
-          # Принудительно копируем всё из папки пакетов (ищем в обоих вероятных местах)
-          # Если emerge собрал пакеты, они должны быть тут:
-          docker exec builder sh -c 'cp -r /var/cache/binpkgs/* /tmp/ 2>/dev/null || true'
-          # Копируем из контейнера на раннер
-          docker cp builder:/tmp/ ./packages/binpkgs/
-          
-          echo "Содержимое папки с бинарниками:"
-          ls -R ./packages/binpkgs/
-          
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: gentoo-binaries-shad1k1
-          path: ./packages/binpkgs/
+          path: ./final_packages/binpkgs/
+          
