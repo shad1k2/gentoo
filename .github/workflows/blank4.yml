@@ -14,7 +14,7 @@ jobs:
           sudo rm -rf /opt/ghc
           sudo rm -rf "/usr/local/share/boost"
 
-      -  name: Build in Docker
+      - name: Build in Docker
         run: |
           docker run --name gentoo_builder --privileged gentoo/stage3:latest /bin/bash -c "
             emerge-webrsync &&
