@@ -33,5 +33,8 @@ echo "*/* wayland" >> /etc/portage/package.use/build
 echo "gui-libs/wlroots x11-backend" >> /etc/portage/package.use/build
 
 # Пытаемся собрать всё из GURU. Если ags не найдется, пробуем полное имя.
-emerge --verbose gui-wm/swayfx || exit 1
-emerge --verbose gui-apps/aylurs-gtk-shell || emerge --verbose gui-apps/ags
+# Сборка SwayFX с автоматическим подтверждением
+emerge --verbose --batch --quiet-build=n gui-wm/swayfx || exit 1
+
+# Сборка AGS (пробуем оба варианта имени) без лишних вопросов
+emerge --verbose --batch --quiet-build=n gui-apps/aylurs-gtk-shell || emerge --verbose --batch --quiet-build=n gui-apps/ags
