@@ -1,0 +1,59 @@
+name: Build Material Desktop
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+
+      - name: Build in Docker
+        # Даем имя контейнеру через --name, чтобы потом его найти
+        run: |
+          docker run --name gentoo_builder --privileged gentoo/stage3:latest /bin/bash -c "
+            emerge-webrsync &&
+                        # Подключаем необходимые оверлеи
+            emerge --quiet app-eselect/eselect-repository &&
+            eselect repository enable guru &&
+            eselect repository enable zugaina &&
+            
+            # Синхронизируем всё сразу
+            emaint sync -r guru &&
+            emaint sync -r zugaina &&
+
+            # Настраиваем ключевые слова для пакетов из разных оверлеев
+            mkdir -p /etc/portage/package.accept_keywords &&
+            echo 'gui-wm/swayfx ~amd64' >> /etc/portage/package.accept_keywords/build &&
+            echo 'gui-libs/wlroots ~amd64' >> /etc/portage/package.accept_keywords/build &&
+            echo 'gui-apps/ags ~amd64' >> /etc/portage/package.accept_keywords/build &&
+            echo 'dev-libs/gjs ~amd64' >> /etc/portage/package.accept_keywords/build &&
+            
+            # Настройка USE-флагов для Material Design
+            mkdir -p /etc/portage/package.use &&
+            echo '*/* wayland' >> /etc/portage/package.use/build &&
+            echo 'gui-libs/wlroots x11-backend' >> /etc/portage/package.use/build &&
+            
+            # Финальная сборка: SwayFX из GURU и AGS из Zugaina
+            emerge --verbose gui-wm/swayfx gui-apps/ags
+            
+
+      - name: Export Packages
+        # Эта команда работает, даже если контейнер gentoo_builder остановлен!
+        run: |
+          mkdir -p ./export_bins
+          docker cp gentoo_builder:/var/cache/binpkgs/ ./export_bins/
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: material-gentoo-bins
+          path: ./export_bins/binpkgs/
+
+          
