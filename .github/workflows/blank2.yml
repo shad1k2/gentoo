@@ -52,9 +52,16 @@ jobs:
 
       - name: Extract Binaries
         run: |
-          mkdir ./packages
-          docker cp builder:/var/cache/binpkgs/ ./packages/
-
+          mkdir -p ./packages/binpkgs
+          # Принудительно копируем всё из папки пакетов (ищем в обоих вероятных местах)
+          # Если emerge собрал пакеты, они должны быть тут:
+          docker exec builder sh -c 'cp -r /var/cache/binpkgs/* /tmp/ 2>/dev/null || true'
+          # Копируем из контейнера на раннер
+          docker cp builder:/tmp/ ./packages/binpkgs/
+          
+          echo "Содержимое папки с бинарниками:"
+          ls -R ./packages/binpkgs/
+          
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
