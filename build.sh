@@ -25,6 +25,7 @@ echo "gui-libs/wlroots ~amd64" >> /etc/portage/package.accept_keywords/build
 echo "gui-apps/ags ~amd64" >> /etc/portage/package.accept_keywords/build
 echo "gui-apps/aylurs-gtk-shell ~amd64" >> /etc/portage/package.accept_keywords/build
 echo "dev-libs/gjs ~amd64" >> /etc/portage/package.accept_keywords/build
+echo "gui-libs/scenefx ~amd64" >> /etc/portage/package.accept_keywords/build
 
 # Настройка USE-флагов для Wayland и Material
 mkdir -p /etc/portage/package.use
